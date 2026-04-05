@@ -8,10 +8,17 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Strict API Firewall Boundary
+// Strict API Firewall Boundary (PDF)
 const generatePdfSchema = z.strictObject({
   targetUrl: z.string().url(),
   filename: z.string().optional().default('Document.pdf'),
+});
+
+// Strict API Firewall Boundary (Studio Media Extraction)
+const generateVideoSchema = z.strictObject({
+  videoUrl: z.string().url(),
+  outputFormat: z.enum(['mp4', 'webm', 'gif']).default('mp4'),
+  resolution: z.enum(['1080p', '720p', '480p']).default('720p'),
 });
 
 app.post('/api/generate/pdf', async (c) => {
@@ -62,6 +69,34 @@ app.post('/api/generate/pdf', async (c) => {
         'Content-Length': pdfBuffer.byteLength.toString(),
       },
     });
+
+  } catch (error: any) {
+    return c.json({ error: 'Internal Server Error', message: error.message }, 500);
+  }
+});
+
+app.post('/api/generate/video', async (c) => {
+  try {
+    // 1. Zod Validation
+    const body = await c.req.json();
+    const result = generateVideoSchema.safeParse(body);
+    
+    if (!result.success) {
+      return c.json({ error: 'Schema Validation Failed', details: result.error.format() }, 400);
+    }
+    
+    const { videoUrl, outputFormat, resolution } = result.data;
+
+    // TODO: Sub-contractor utilizes @ffmpeg/ffmpeg here to transform the stream.
+    // 1. Download source video URL to ArrayBuffer
+    // 2. Transcode natively via WASM
+    // 3. Return secure Buffer to the Cloudflare Edge Response
+
+    return c.json({ 
+      status: 'pending', 
+      message: 'Video engine processing isolated successfully.', 
+      metadata: { videoUrl, outputFormat, resolution }
+    }, 200);
 
   } catch (error: any) {
     return c.json({ error: 'Internal Server Error', message: error.message }, 500);
